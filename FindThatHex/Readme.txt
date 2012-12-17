@@ -9,6 +9,9 @@ Quick Notes
 	FindThatHex.exe <path> <string> <start_offset>
 
 Version History
+	v1.0.2
+		- Various fixes and optimizations
+
 	v1.0.1
 		- Added some error detection here and there
 
