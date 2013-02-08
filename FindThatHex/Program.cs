@@ -1,16 +1,36 @@
-﻿using System;
-using System.Collections.Generic;
+﻿#region Copyright Notice
+
+//    Copyright 2011-2013 Eleftherios Aslanoglou
+// 
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+// 
+//        http://www.apache.org/licenses/LICENSE-2.0
+// 
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+#endregion
+
+#region Using Directives
+
+using System;
 using System.IO;
 using System.Linq;
-using System.Text;
 using LeftosCommonLibrary;
 using NonByteAlignedBinaryRW;
 
+#endregion
+
 namespace FindThatHex
 {
-    class Program
+    internal class Program
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             Console.WriteLine("Find That Hex");
             Console.WriteLine("\tby Lefteris \"Leftos\" Aslanoglou");
@@ -18,13 +38,13 @@ namespace FindThatHex
             Console.WriteLine("Usage: FindThatHex.exe <path> <string> <start_offset>");
             Console.WriteLine("All parameters are optional, but if any exist, they must be in the order shown.");
             Console.WriteLine();
-            FileStream fs;
+            MemoryStream fs;
             string s = String.Empty;
             if (args.Length > 0)
             {
                 try
                 {
-                    fs = File.OpenRead(args[0]);
+                    fs = new MemoryStream(File.ReadAllBytes(args[0]));
                 }
                 catch (Exception ex)
                 {
@@ -41,7 +61,7 @@ namespace FindThatHex
                 f = f.Replace("\n", "").Replace("\"", "");
                 try
                 {
-                    fs = File.OpenRead(f);
+                    fs = new MemoryStream(File.ReadAllBytes(f));
                 }
                 catch (Exception ex)
                 {
@@ -52,7 +72,7 @@ namespace FindThatHex
                 }
             }
             bool found;
-            using (NonByteAlignedBinaryReader br = new NonByteAlignedBinaryReader(fs))
+            using (var br = new NonByteAlignedBinaryReader(fs))
             {
                 if (args.Length > 1)
                 {
@@ -66,7 +86,7 @@ namespace FindThatHex
                 s = s.ToUpperInvariant();
                 char[] ca = s.ToCharArray();
                 string valid = "0123456789ABCDEF";
-                foreach (char c in ca)
+                foreach (var c in ca)
                 {
                     if (!valid.Contains(c))
                     {
@@ -109,10 +129,7 @@ namespace FindThatHex
                 byte[] sba = Tools.HexStringToByteArray(s);
                 while (true)
                 {
-                    if (br.BaseStream.Position % 50000 == 0 && br.InBytePosition == 0)
-                    {
-                        Console.WriteLine("..at " + br.BaseStream.Position + "...");
-                    }
+                    PrintProgress(br);
                     s1 = br.ReadNonByteAlignedByte();
                     //Console.WriteLine("Compared {0} to {1} (at {2} +{3})", s1, s2, br.BaseStream.Position - 1, br.InBytePosition);
                     while (s1 != s2)
@@ -123,10 +140,7 @@ namespace FindThatHex
                             found = false;
                             break;
                         }
-                        if (br.BaseStream.Position % 50000 == 0 && br.InBytePosition == 0)
-                        {
-                            Console.WriteLine("..at " + br.BaseStream.Position + "...");
-                        }
+                        PrintProgress(br);
                         s1 = br.ReadNonByteAlignedByte();
                         //Console.WriteLine("Compared {0} to {1} (at {2} +{3})", s1, s2, br.BaseStream.Position - 1, br.InBytePosition);
                     }
@@ -145,12 +159,12 @@ namespace FindThatHex
                     }
                     if (br.ReadNonByteAlignedBytes(s.Length/2).SequenceEqual(sba))
                     {
-                        Console.WriteLine("Found at {0} +{1}!", (br.BaseStream.Position - (s.Length / 2)), br.InBytePosition);
+                        Console.WriteLine("Found at {0} +{1}!", (br.BaseStream.Position - (s.Length/2)), br.InBytePosition);
                     }
                     else
                     {
                         //Console.Write("Was at {0} +{1}, ", br.BaseStream.Position, br.InBytePosition);
-                        br.MoveStreamPosition(0 - (s.Length / 2), 1);
+                        br.MoveStreamPosition(0 - (s.Length/2), 1);
                         //Console.WriteLine("now at {0} +{1}.", br.BaseStream.Position, br.InBytePosition);
                     }
                 }
@@ -160,6 +174,15 @@ namespace FindThatHex
             {
                 Console.WriteLine("Hex string not found after last occurrence, if any.");
                 Console.ReadKey();
+            }
+        }
+
+        private static void PrintProgress(NonByteAlignedBinaryReader br)
+        {
+            if (br.BaseStream.Position%500000 == 0 && br.InBytePosition == 0)
+            {
+                Console.WriteLine("..at {0}/{1} ({2}%)...", br.BaseStream.Position, br.BaseStream.Length,
+                                  br.BaseStream.Position*100/br.BaseStream.Length);
             }
         }
     }
