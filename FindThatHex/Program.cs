@@ -39,24 +39,162 @@ namespace FindThatHex
             Console.WriteLine("All parameters are optional, but if any exist, they must be in the order shown.");
             Console.WriteLine();
             MemoryStream fs;
-            string s = String.Empty;
-            if (args.Length > 0)
+            var cki = new ConsoleKeyInfo();
+            if (args.Length == 0)
             {
-                try
+                do
                 {
-                    fs = new MemoryStream(File.ReadAllBytes(args[0]));
+                    Console.WriteLine("Function: ");
+                    Console.WriteLine("1. Find Offset");
+                    Console.WriteLine("2. Shift File");
+                    Console.WriteLine();
+                    cki = Console.ReadKey();
+                    Console.WriteLine();
+                    Console.WriteLine();
+                } while (cki.KeyChar != '1' && cki.KeyChar != '2');
+            }
+            if (args.Length > 0 || cki.KeyChar == '1')
+            {
+                string s = String.Empty;
+                if (args.Length > 0)
+                {
+                    try
+                    {
+                        fs = new MemoryStream(File.ReadAllBytes(args[0]));
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("Could not open file.");
+                        Console.WriteLine(ex);
+                        Console.ReadKey();
+                        return;
+                    }
                 }
-                catch (Exception ex)
+                else
                 {
-                    Console.WriteLine("Could not open file.");
-                    Console.WriteLine(ex);
+                    Console.WriteLine("Enter the path to the file to be searched:");
+                    string f = Console.ReadLine();
+                    f = f.Replace("\n", "").Replace("\"", "");
+                    try
+                    {
+                        fs = new MemoryStream(File.ReadAllBytes(f));
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("Could not open file.");
+                        Console.WriteLine(ex);
+                        Console.ReadKey();
+                        return;
+                    }
+                }
+                bool found;
+                using (var br = new NonByteAlignedBinaryReader(fs))
+                {
+                    if (args.Length > 1)
+                    {
+                        s = args[1];
+                    }
+                    else
+                    {
+                        Console.Write("Enter the hex string to be found: ");
+                        s = Console.ReadLine();
+                    }
+                    s = s.ToUpperInvariant();
+                    char[] ca = s.ToCharArray();
+                    string valid = "0123456789ABCDEF";
+                    foreach (var c in ca)
+                    {
+                        if (!valid.Contains(c))
+                        {
+                            Console.WriteLine("Hex string contains invalid character \"" + c + "\"");
+                            Console.ReadKey();
+                            return;
+                        }
+                    }
+                    if (args.Length > 2)
+                    {
+                        try
+                        {
+                            br.BaseStream.Position = Convert.ToInt32(args[2]);
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine(e);
+                            Console.ReadKey();
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        Console.Write("Enter the starting offset: ");
+                        try
+                        {
+                            br.BaseStream.Position = Convert.ToInt32(Console.ReadLine());
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine(e);
+                            Console.ReadKey();
+                            return;
+                        }
+                    }
+
+                    found = true;
+                    byte s1;
+                    byte s2 = Convert.ToByte(s.Substring(0, 2), 16);
+                    byte[] sba = Tools.HexStringToByteArray(s);
+                    while (true)
+                    {
+                        PrintProgress(br);
+                        s1 = br.ReadNonByteAlignedByte();
+                        //Console.WriteLine("Compared {0} to {1} (at {2} +{3})", s1, s2, br.BaseStream.Position - 1, br.InBytePosition);
+                        while (s1 != s2)
+                        {
+                            br.MoveStreamPosition(0, -7);
+                            if (br.BaseStream.Length - br.BaseStream.Position == 1 && br.InBytePosition > 0)
+                            {
+                                found = false;
+                                break;
+                            }
+                            PrintProgress(br);
+                            s1 = br.ReadNonByteAlignedByte();
+                            //Console.WriteLine("Compared {0} to {1} (at {2} +{3})", s1, s2, br.BaseStream.Position - 1, br.InBytePosition);
+                        }
+
+                        if (!found)
+                        {
+                            break;
+                        }
+
+                        br.BaseStream.Position--;
+                        long distanceFromEnd = br.BaseStream.Length - br.BaseStream.Position;
+                        if (distanceFromEnd < s.Length/2 || (distanceFromEnd == s.Length/2 && br.InBytePosition > 0))
+                        {
+                            found = false;
+                            break;
+                        }
+                        if (br.ReadNonByteAlignedBytes(s.Length/2).SequenceEqual(sba))
+                        {
+                            Console.WriteLine("Found at {0} +{1}!", (br.BaseStream.Position - (s.Length/2)), br.InBytePosition);
+                        }
+                        else
+                        {
+                            //Console.Write("Was at {0} +{1}, ", br.BaseStream.Position, br.InBytePosition);
+                            br.MoveStreamPosition(0 - (s.Length/2), 1);
+                            //Console.WriteLine("now at {0} +{1}.", br.BaseStream.Position, br.InBytePosition);
+                        }
+                    }
+                }
+
+                if (!found)
+                {
+                    Console.WriteLine("Hex string not found after last occurrence, if any.");
                     Console.ReadKey();
-                    return;
                 }
             }
-            else
+            else if (cki.KeyChar == '2')
             {
-                Console.WriteLine("Enter the path to the file to be searched:");
+                Console.WriteLine("Enter the path to the file to be re-aligned:");
                 string f = Console.ReadLine();
                 f = f.Replace("\n", "").Replace("\"", "");
                 try
@@ -70,47 +208,10 @@ namespace FindThatHex
                     Console.ReadKey();
                     return;
                 }
-            }
-            bool found;
-            using (var br = new NonByteAlignedBinaryReader(fs))
-            {
-                if (args.Length > 1)
+
+                using (var br = new NonByteAlignedBinaryReader(fs))
                 {
-                    s = args[1];
-                }
-                else
-                {
-                    Console.Write("Enter the hex string to be found: ");
-                    s = Console.ReadLine();
-                }
-                s = s.ToUpperInvariant();
-                char[] ca = s.ToCharArray();
-                string valid = "0123456789ABCDEF";
-                foreach (var c in ca)
-                {
-                    if (!valid.Contains(c))
-                    {
-                        Console.WriteLine("Hex string contains invalid character \"" + c + "\"");
-                        Console.ReadKey();
-                        return;
-                    }
-                }
-                if (args.Length > 2)
-                {
-                    try
-                    {
-                        br.BaseStream.Position = Convert.ToInt32(args[2]);
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine(e);
-                        Console.ReadKey();
-                        return;
-                    }
-                }
-                else
-                {
-                    Console.Write("Enter the starting offset: ");
+                    Console.Write("Enter the starting offset in bytes: ");
                     try
                     {
                         br.BaseStream.Position = Convert.ToInt32(Console.ReadLine());
@@ -121,59 +222,39 @@ namespace FindThatHex
                         Console.ReadKey();
                         return;
                     }
-                }
 
-                found = true;
-                byte s1;
-                byte s2 = Convert.ToByte(s.Substring(0, 2), 16);
-                byte[] sba = Tools.HexStringToByteArray(s);
-                while (true)
-                {
-                    PrintProgress(br);
-                    s1 = br.ReadNonByteAlignedByte();
-                    //Console.WriteLine("Compared {0} to {1} (at {2} +{3})", s1, s2, br.BaseStream.Position - 1, br.InBytePosition);
-                    while (s1 != s2)
+                    Console.Write("Enter the bit to start reading from: ");
+                    try
                     {
-                        br.MoveStreamPosition(0, -7);
-                        if (br.BaseStream.Length - br.BaseStream.Position == 1 && br.InBytePosition > 0)
+                        br.InBytePosition = Convert.ToInt32(Console.ReadLine());
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e);
+                        Console.ReadKey();
+                        return;
+                    }
+
+                    try
+                    {
+                        BinaryWriter bw;
+                        using (bw = new BinaryWriter(new FileStream(f + ".shifted", FileMode.Create)))
                         {
-                            found = false;
-                            break;
+                            while (br.BaseStream.Length - br.BaseStream.Position > 1)
+                            {
+                                bw.Write(br.ReadNonByteAlignedByte());
+                            }
+                            var lastByte = br.ReadNonByteAlignedBits(8 - br.InBytePosition).PadRight(8, '0');
+                            bw.Write(Convert.ToByte(lastByte, 2));
                         }
-                        PrintProgress(br);
-                        s1 = br.ReadNonByteAlignedByte();
-                        //Console.WriteLine("Compared {0} to {1} (at {2} +{3})", s1, s2, br.BaseStream.Position - 1, br.InBytePosition);
                     }
-
-                    if (!found)
+                    catch (Exception e)
                     {
-                        break;
-                    }
-
-                    br.BaseStream.Position--;
-                    long distanceFromEnd = br.BaseStream.Length - br.BaseStream.Position;
-                    if (distanceFromEnd < s.Length/2 || (distanceFromEnd == s.Length/2 && br.InBytePosition > 0))
-                    {
-                        found = false;
-                        break;
-                    }
-                    if (br.ReadNonByteAlignedBytes(s.Length/2).SequenceEqual(sba))
-                    {
-                        Console.WriteLine("Found at {0} +{1}!", (br.BaseStream.Position - (s.Length/2)), br.InBytePosition);
-                    }
-                    else
-                    {
-                        //Console.Write("Was at {0} +{1}, ", br.BaseStream.Position, br.InBytePosition);
-                        br.MoveStreamPosition(0 - (s.Length/2), 1);
-                        //Console.WriteLine("now at {0} +{1}.", br.BaseStream.Position, br.InBytePosition);
+                        Console.WriteLine(e);
+                        Console.ReadKey();
+                        return;
                     }
                 }
-            }
-
-            if (!found)
-            {
-                Console.WriteLine("Hex string not found after last occurrence, if any.");
-                Console.ReadKey();
             }
         }
 
