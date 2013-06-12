@@ -32,7 +32,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("FindThatHex")]
-[assembly: AssemblyCopyright("Copyright © Lefteris Aslanoglou 2012")]
+[assembly: AssemblyCopyright("Copyright © Lefteris Aslanoglou 2012-2013")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

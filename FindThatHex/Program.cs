@@ -28,9 +28,9 @@ using NonByteAlignedBinaryRW;
 
 namespace FindThatHex
 {
-    internal class Program
+    internal static class Program
     {
-        private static void Main(string[] args)
+        internal static void Main(string[] args)
         {
             Console.WriteLine("Find That Hex");
             Console.WriteLine("\tby Lefteris \"Leftos\" Aslanoglou");
@@ -38,7 +38,7 @@ namespace FindThatHex
             Console.WriteLine("Usage: FindThatHex.exe <path> <string> <start_offset>");
             Console.WriteLine("All parameters are optional, but if any exist, they must be in the order shown.");
             Console.WriteLine();
-            MemoryStream fs;
+            MemoryStream fs = null;
             var cki = new ConsoleKeyInfo();
             if (args.Length == 0)
             {
@@ -55,7 +55,6 @@ namespace FindThatHex
             }
             if (args.Length > 0 || cki.KeyChar == '1')
             {
-                string s = String.Empty;
                 if (args.Length > 0)
                 {
                     try
@@ -74,10 +73,17 @@ namespace FindThatHex
                 {
                     Console.WriteLine("Enter the path to the file to be searched:");
                     string f = Console.ReadLine();
-                    f = f.Replace("\n", "").Replace("\"", "");
                     try
                     {
-                        fs = new MemoryStream(File.ReadAllBytes(f));
+                        if (f != null)
+                        {
+                            f = f.Replace("\n", "").Replace("\"", "");
+                            fs = new MemoryStream(File.ReadAllBytes(f));
+                        }
+                        else
+                        {
+                            Environment.Exit(0);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -87,9 +93,9 @@ namespace FindThatHex
                         return;
                     }
                 }
-                bool found;
                 using (var br = new NonByteAlignedBinaryReader(fs))
                 {
+                    string s;
                     if (args.Length > 1)
                     {
                         s = args[1];
@@ -99,10 +105,17 @@ namespace FindThatHex
                         Console.Write("Enter the hex string to be found: ");
                         s = Console.ReadLine();
                     }
-                    s = s.ToUpperInvariant();
+                    if (s != null)
+                    {
+                        s = s.ToUpperInvariant();
+                    }
+                    else
+                    {
+                        Environment.Exit(0);
+                    }
                     char[] ca = s.ToCharArray();
-                    string valid = "0123456789ABCDEF";
-                    foreach (var c in ca)
+                    const string valid = "0123456789ABCDEF";
+                    foreach (char c in ca)
                     {
                         if (!valid.Contains(c))
                         {
@@ -139,14 +152,13 @@ namespace FindThatHex
                         }
                     }
 
-                    found = true;
-                    byte s1;
+                    bool found = true;
                     byte s2 = Convert.ToByte(s.Substring(0, 2), 16);
                     byte[] sba = Tools.HexStringToByteArray(s);
                     while (true)
                     {
-                        PrintProgress(br);
-                        s1 = br.ReadNonByteAlignedByte();
+                        printProgress(br);
+                        byte s1 = br.ReadNonByteAlignedByte();
                         //Console.WriteLine("Compared {0} to {1} (at {2} +{3})", s1, s2, br.BaseStream.Position - 1, br.InBytePosition);
                         while (s1 != s2)
                         {
@@ -156,7 +168,7 @@ namespace FindThatHex
                                 found = false;
                                 break;
                             }
-                            PrintProgress(br);
+                            printProgress(br);
                             s1 = br.ReadNonByteAlignedByte();
                             //Console.WriteLine("Compared {0} to {1} (at {2} +{3})", s1, s2, br.BaseStream.Position - 1, br.InBytePosition);
                         }
@@ -170,7 +182,6 @@ namespace FindThatHex
                         long distanceFromEnd = br.BaseStream.Length - br.BaseStream.Position;
                         if (distanceFromEnd < s.Length/2 || (distanceFromEnd == s.Length/2 && br.InBytePosition > 0))
                         {
-                            found = false;
                             break;
                         }
                         if (br.ReadNonByteAlignedBytes(s.Length/2).SequenceEqual(sba))
@@ -186,17 +197,21 @@ namespace FindThatHex
                     }
                 }
 
-                if (!found)
-                {
-                    Console.WriteLine("Hex string not found after last occurrence, if any.");
-                    Console.ReadKey();
-                }
+                Console.WriteLine("Hex string not found after last occurrence, if any.");
+                Console.ReadKey();
             }
             else if (cki.KeyChar == '2')
             {
                 Console.WriteLine("Enter the path to the file to be re-aligned:");
                 string f = Console.ReadLine();
-                f = f.Replace("\n", "").Replace("\"", "");
+                if (f != null)
+                {
+                    f = f.Replace("\n", "").Replace("\"", "");
+                }
+                else
+                {
+                    Environment.Exit(0);
+                }
                 try
                 {
                     fs = new MemoryStream(File.ReadAllBytes(f));
@@ -244,7 +259,7 @@ namespace FindThatHex
                             {
                                 bw.Write(br.ReadNonByteAlignedByte());
                             }
-                            var lastByte = br.ReadNonByteAlignedBits(8 - br.InBytePosition).PadRight(8, '0');
+                            string lastByte = br.ReadNonByteAlignedBits(8 - br.InBytePosition).PadRight(8, '0');
                             bw.Write(Convert.ToByte(lastByte, 2));
                         }
                     }
@@ -258,7 +273,7 @@ namespace FindThatHex
             }
         }
 
-        private static void PrintProgress(NonByteAlignedBinaryReader br)
+        private static void printProgress(NonByteAlignedBinaryReader br)
         {
             if (br.BaseStream.Position%500000 == 0 && br.InBytePosition == 0)
             {

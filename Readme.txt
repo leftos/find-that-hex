@@ -9,6 +9,9 @@ Quick Notes
 	FindThatHex.exe <path> <string> <start_offset>
 
 Version History
+	v1.2
+		- Tool can now shift whole files by a certain amount of bits, starting at any byte offset inside the original file
+
 	v1.1
 		- Major optimization, tool should now work shitloads faster
 
